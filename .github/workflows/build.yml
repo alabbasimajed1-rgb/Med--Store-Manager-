@@ -25,8 +25,13 @@ jobs:
       
       - name: Create Flutter project structure
         run: |
-          flutter create --org com.medstore --project-name med_store_manager .
+          flutter create --org com.medstore --project-name med_store_manager --platforms=android .
           rm lib/main.dart
+      
+      - name: Fix Gradle files
+        run: |
+          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.22"/' android/build.gradle
+          sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "1.9.22" apply false/' android/settings.gradle
       
       - name: Restore your files
         run: |
