@@ -20,18 +20,27 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.22.3'
           channel: 'stable'
       
-      - name: Create Flutter project structure
+      - name: Create Flutter project
         run: |
           flutter create --org com.medstore --project-name med_store_manager --platforms=android .
           rm lib/main.dart
       
-      - name: Fix Gradle files
+      - name: Fix all Gradle files
         run: |
+          # Fix kotlin version
           sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.22"/' android/build.gradle
+          
+          # Fix settings.gradle
           sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "1.9.22" apply false/' android/settings.gradle
+          
+          # Fix app/build.gradle compileSdk and ndkVersion
+          sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 34/' android/app/build.gradle
+          sed -i '/android {/a \    ndkVersion "26.1.10909125"' android/app/build.gradle
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' android/app/build.gradle
+          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/' android/app/build.gradle
       
       - name: Restore your files
         run: |
@@ -41,7 +50,7 @@ jobs:
         run: flutter pub get
       
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-shrink
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
