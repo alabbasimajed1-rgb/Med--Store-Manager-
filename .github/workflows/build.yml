@@ -28,19 +28,22 @@ jobs:
           flutter create --org com.medstore --project-name med_store_manager --platforms=android .
           rm lib/main.dart
       
-      - name: Fix all Gradle files
+      - name: Fix Gradle + Manifest
         run: |
-          # Fix kotlin version
+          # 1. Fix kotlin version
           sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.22"/' android/build.gradle
           
-          # Fix settings.gradle
+          # 2. Fix settings.gradle
           sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "1.9.22" apply false/' android/settings.gradle
           
-          # Fix app/build.gradle compileSdk and ndkVersion
+          # 3. Fix app/build.gradle - add namespace + versions
+          sed -i '/defaultConfig {/a \        namespace "com.medstore.med_store_manager"' android/app/build.gradle
           sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 34/' android/app/build.gradle
-          sed -i '/android {/a \    ndkVersion "26.1.10909125"' android/app/build.gradle
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' android/app/build.gradle
           sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/' android/app/build.gradle
+          
+          # 4. Add notification permissions to AndroidManifest
+          sed -i '/<\/application>/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' android/app/src/main/AndroidManifest.xml
       
       - name: Restore your files
         run: |
@@ -49,11 +52,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
       
-      - name: Build APK
-        run: flutter build apk --release --no-shrink
+      - name: Build Debug APK
+        run: flutter build apk --debug
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Med-Store-Manager-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
