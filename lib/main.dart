@@ -3,7 +3,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -136,50 +135,16 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<Drug> drugs = [];
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
     _refreshDrugs();
-    _initNotifications();
-  }
-
-  _initNotifications() async {
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
   _refreshDrugs() async {
     final data = await DatabaseHelper.instance.getAllDrugs();
     setState(() => drugs = data);
-    _checkAlerts();
-  }
-
-  _checkAlerts() async {
-    for (var drug in drugs) {
-      // Stock alert
-      if (drug.remainingQty <= drug.minStockAlert) {
-        _showAlert('Stock Alert', 'Remaining quantity of ${drug.name} is low: ${drug.remainingQty}');
-      }
-      // Expiry alert
-      final monthsToExpiry = drug.expiryDate.difference(DateTime.now()).inDays / 30;
-      if (monthsToExpiry <= drug.expiryAlertMonths && monthsToExpiry > 0) {
-        _showAlert('Expiry Alert', '${drug.name} will expire in ${monthsToExpiry.toStringAsFixed(1)} months');
-      }
-    }
-  }
-
-  _showAlert(String title, String body) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'med_channel', 'Med Store Alerts',
-      importance: Importance.max, priority: Priority.high);
-    const NotificationDetails details = NotificationDetails(android: androidDetails);
-    await flutterLocalNotificationsPlugin.show(0, title, body, details);
   }
 
   @override
@@ -201,7 +166,7 @@ class _HomePageState extends State<HomePage> {
               itemBuilder: (context, index) {
                 final drug = drugs[index];
                 final monthsToExpiry = drug.expiryDate.difference(DateTime.now()).inDays / 30;
-                final isExpiryAlert = monthsToExpiry <= drug.expiryAlertMonths;
+                final isExpiryAlert = monthsToExpiry <= drug.expiryAlertMonths && monthsToExpiry > 0;
                 final isStockAlert = drug.remainingQty <= drug.minStockAlert;
 
                 return Card(
@@ -212,23 +177,26 @@ class _HomePageState extends State<HomePage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
                       gradient: LinearGradient(
-                        colors: [Colors.white, Colors.teal.shade50],
-                        begin: Alignment.topRight, end: Alignment.bottomLeft),
+                        colors: isExpiryAlert || isStockAlert
+                           ? [Colors.red.shade50, Colors.white]
+                            : [Colors.white, Colors.teal.shade50],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                      ),
                     ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.all(16),
                       title: Text(drug.name,
-                        style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold)),
+                          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold)),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 8),
                           _buildInfoRow('Total Quantity:', '${drug.totalQty}'),
                           _buildInfoRow('Issued:', '${drug.issuedQty}'),
-                          _buildInfoRow('Remaining:', '${drug.remainingQty}',
-                            isAlert: isStockAlert),
+                          _buildInfoRow('Remaining:', '${drug.remainingQty}', isAlert: isStockAlert),
                           _buildInfoRow('Expiry Date:', DateFormat('yyyy-MM-dd').format(drug.expiryDate),
-                            isAlert: isExpiryAlert),
+                              isAlert: isExpiryAlert),
                           _buildInfoRow('Stock Alert At:', '${drug.minStockAlert}'),
                           _buildInfoRow('Expiry Alert Before:', '${drug.expiryAlertMonths} months'),
                         ],
@@ -265,10 +233,11 @@ class _HomePageState extends State<HomePage> {
           Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
           const SizedBox(width: 8),
           Text(value,
-            style: GoogleFonts.poppins(
-              color: isAlert? Colors.red.shade700 : Colors.black87,
-              fontWeight: isAlert? FontWeight.bold : FontWeight.normal,
-            )),
+              style: GoogleFonts.poppins(
+                color: isAlert? Colors.red.shade700 : Colors.black87,
+                fontWeight: isAlert? FontWeight.bold : FontWeight.normal,
+                fontSize: isAlert? 16 : 14,
+              )),
         ],
       ),
     );
@@ -304,7 +273,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 12),
                 ListTile(
                   title: Text('Expiry Date: ${DateFormat('yyyy-MM-dd').format(selectedDate)}',
-                    style: GoogleFonts.poppins()),
+                      style: GoogleFonts.poppins()),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
                     final date = await showDatePicker(
